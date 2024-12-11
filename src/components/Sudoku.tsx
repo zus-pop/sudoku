@@ -3,7 +3,6 @@ import { useState } from "react";
 import { useSudokuStore } from "../stores";
 
 const sudoku = () => {
-  const size = useSudokuStore((state) => state.size);
   const board = useSudokuStore((state) => state.board);
   const digits = useSudokuStore((state) => state.digits);
   const setSelectedCell = useSudokuStore((state) => state.setSelectedCell);
@@ -43,7 +42,7 @@ const sudoku = () => {
   return (
     <motion.div className="-mt-20 flex flex-col items-center">
       <motion.div className="mx-auto p-4 bg-sky-800 rounded-md">
-        <motion.div className={`grid grid-cols-${size}`}>
+        <motion.div className={`grid grid-cols-9`}>
           {board.map((row, rowIndex) =>
             row.map((_, colIndex) => (
               <motion.div
