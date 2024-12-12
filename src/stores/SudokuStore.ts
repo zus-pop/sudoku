@@ -1,3 +1,4 @@
+import { toast } from "sonner";
 import { create } from "zustand";
 
 interface Cell {
@@ -18,13 +19,23 @@ interface SudokuLevel {
   extreme: number;
 }
 
+interface ProcessState {
+  isSolving: boolean;
+  isGenerating: boolean;
+  isChecking: boolean;
+  isResetting: boolean;
+}
+
 interface SudokuState {
-  levels: SudokuLevel;
-  size: number;
   digits: number[];
+  size: number;
   initialBoard: number[][];
   board: number[][];
+  levels: SudokuLevel;
   selectedCell: Cell | null;
+  processingStates: ProcessState;
+
+  isNotFull: () => boolean;
   generateBoard: (level: "easy" | "medium" | "hard" | "extreme") => void;
   fillBoard: (
     board: number[][],
@@ -55,22 +66,39 @@ interface SudokuState {
     col: number,
     state: Tracker
   ) => Promise<boolean>;
+  setProcessingState: (state: Partial<ProcessState>) => void;
 }
 
 export const useSudokuStore = create<SudokuState>()((set, get) => ({
+  digits: [1, 2, 3, 4, 5, 6, 7, 8, 9],
+  size: 9,
+  initialBoard: Array.from({ length: 9 }, () => Array(9).fill(0)),
+  board: Array.from({ length: 9 }, () => Array(9).fill(0)),
   levels: {
     easy: 45,
     medium: 35,
     hard: 25,
     extreme: 15,
   },
-  size: 9,
-  initialBoard: Array.from({ length: 9 }, () => Array(9).fill(0)),
-  board: Array.from({ length: 9 }, () => Array(9).fill(0)),
-  digits: [1, 2, 3, 4, 5, 6, 7, 8, 9],
   selectedCell: null,
+  processingStates: {
+    isSolving: false,
+    isGenerating: false,
+    isChecking: false,
+    isResetting: false,
+  },
+
+  isNotFull: () => {
+    const board = get().board;
+    return board.some((row) => row.some((cell) => cell === 0));
+  },
+  setProcessingState: (processingStates) =>
+    set((state) => ({
+      processingStates: { ...state.processingStates, ...processingStates },
+    })),
 
   generateBoard: (level = "medium") => {
+    get().setProcessingState({ isGenerating: true });
     const board = Array.from({ length: 9 }, () => Array(9).fill(0));
     const state = get().getCurrentState(board);
 
@@ -86,6 +114,7 @@ export const useSudokuStore = create<SudokuState>()((set, get) => ({
       board: JSON.parse(JSON.stringify(newBoard)) as number[][],
       initialBoard: JSON.parse(JSON.stringify(newBoard)) as number[][],
     });
+    get().setProcessingState({ isGenerating: false });
   },
 
   fillBoard: (board, row, col, state) => {
@@ -162,13 +191,17 @@ export const useSudokuStore = create<SudokuState>()((set, get) => ({
         boxTracker[boxIndex] |= pos;
       }
     }
+
     return true;
   },
 
-  resetBoard: () =>
+  resetBoard: () => {
+    get().setProcessingState({ isResetting: true });
     set((state) => ({
       board: JSON.parse(JSON.stringify(state.initialBoard)) as number[][],
-    })),
+    }));
+    get().setProcessingState({ isResetting: false });
+  },
 
   getCurrentState: (board: number[][]): Tracker => {
     const size = get().size;
@@ -223,18 +256,20 @@ export const useSudokuStore = create<SudokuState>()((set, get) => ({
   solveBoard: async (type) => {
     const board = JSON.parse(JSON.stringify(get().initialBoard)) as number[][];
     const state = get().getCurrentState(board);
+    get().setProcessingState({ isSolving: true });
+
     switch (type) {
       case "immediately":
         get().solve(board, 0, 0, state);
-        console.log(get().board);
         break;
       case "animation":
         await get().solveAnimation(board, 0, 0, state);
-        alert("Solved!");
         break;
       default:
         break;
     }
+    toast.success("Solved the board!");
+    get().setProcessingState({ isSolving: false });
   },
 
   solveAnimation: async (board, row, col, state) => {
