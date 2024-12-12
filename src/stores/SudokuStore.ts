@@ -11,12 +11,28 @@ interface Tracker {
   boxTracker: number[];
 }
 
+interface SudokuLevel {
+  easy: number;
+  medium: number;
+  hard: number;
+  extreme: number;
+}
+
 interface SudokuState {
+  levels: SudokuLevel;
   size: number;
   digits: number[];
   initialBoard: number[][];
   board: number[][];
   selectedCell: Cell | null;
+  generateBoard: (level: "easy" | "medium" | "hard" | "extreme") => void;
+  fillBoard: (
+    board: number[][],
+    row: number,
+    col: number,
+    state: Tracker
+  ) => void;
+  removeDigits: (board: number[][], level: number) => number[][];
   setBoard: (board: number[][]) => void;
   setBoardAnimation: (board: number[][]) => Promise<void>;
   setSelectedCell: (cell: Cell | null) => void;
@@ -42,37 +58,75 @@ interface SudokuState {
 }
 
 export const useSudokuStore = create<SudokuState>()((set, get) => ({
+  levels: {
+    easy: 45,
+    medium: 35,
+    hard: 25,
+    extreme: 15,
+  },
   size: 9,
-  lastRender: 0,
-  //   board: Array.from({ length: 9 }, () =>
-  //     Array.from({ length: 9 }, () =>
-  //       Math.random() > 0.7 ? Math.floor(Math.random() * 9) + 1 : 0
-  //     )
-  //   ),
-  initialBoard: [
-    [5, 3, 0, 0, 7, 0, 0, 0, 0],
-    [6, 0, 0, 1, 9, 5, 0, 0, 0],
-    [0, 9, 8, 0, 0, 0, 0, 6, 0],
-    [8, 0, 0, 0, 6, 0, 0, 0, 3],
-    [4, 0, 0, 8, 0, 3, 0, 0, 1],
-    [7, 0, 0, 0, 2, 0, 0, 0, 6],
-    [0, 6, 0, 0, 0, 0, 2, 8, 0],
-    [0, 0, 0, 4, 1, 9, 0, 0, 5],
-    [0, 0, 0, 0, 8, 0, 0, 7, 9],
-  ],
-  board: [
-    [5, 3, 0, 0, 7, 0, 0, 0, 0],
-    [6, 0, 0, 1, 9, 5, 0, 0, 0],
-    [0, 9, 8, 0, 0, 0, 0, 6, 0],
-    [8, 0, 0, 0, 6, 0, 0, 0, 3],
-    [4, 0, 0, 8, 0, 3, 0, 0, 1],
-    [7, 0, 0, 0, 2, 0, 0, 0, 6],
-    [0, 6, 0, 0, 0, 0, 2, 8, 0],
-    [0, 0, 0, 4, 1, 9, 0, 0, 5],
-    [0, 0, 0, 0, 8, 0, 0, 7, 9],
-  ],
+  initialBoard: Array.from({ length: 9 }, () => Array(9).fill(0)),
+  board: Array.from({ length: 9 }, () => Array(9).fill(0)),
   digits: [1, 2, 3, 4, 5, 6, 7, 8, 9],
   selectedCell: null,
+
+  generateBoard: (level = "medium") => {
+    const board = Array.from({ length: 9 }, () => Array(9).fill(0));
+    const state = get().getCurrentState(board);
+
+    for (let rowCol = 0; rowCol < 9; rowCol += 3) {
+      get().fillBoard(board, rowCol, rowCol, state);
+    }
+    get().solve(board, 0, 0, state);
+
+    const levelSize = get().levels[level];
+
+    const newBoard = get().removeDigits(board, levelSize);
+    set({
+      board: JSON.parse(JSON.stringify(newBoard)) as number[][],
+      initialBoard: JSON.parse(JSON.stringify(newBoard)) as number[][],
+    });
+  },
+
+  fillBoard: (board, row, col, state) => {
+    const digits = [...get().digits];
+
+    for (let i = 0; i < 3; i++) {
+      for (let j = 0; j < 3; j++) {
+        let value: number;
+        do {
+          const index = Math.floor(Math.random() * digits.length);
+          value = digits[index];
+          digits.splice(index, 1);
+        } while (!get().isValid(row + i, col + j, value, state));
+
+        board[row + i][col + j] = value;
+
+        const pos = 1 << (value - 1);
+        const boxIndex = get().getBoxIndex(row + i, col + j);
+        state.rowTracker[row + i] |= pos;
+        state.colTracker[col + j] |= pos;
+        state.boxTracker[boxIndex] |= pos;
+      }
+    }
+  },
+
+  removeDigits: (board, level) => {
+    board = JSON.parse(JSON.stringify(board)) as number[][];
+    const cells = Array.from({ length: 81 }, (_, i) => ({
+      row: Math.floor(i / 9),
+      col: i % 9,
+    }));
+
+    while (cells.length > level) {
+      const index = Math.floor(Math.random() * cells.length);
+      const { row, col } = cells[index];
+      cells.splice(index, 1);
+      board[row][col] = 0;
+    }
+
+    return board;
+  },
 
   setSelectedCell: (selectedCell) => set({ selectedCell }),
 
@@ -110,7 +164,6 @@ export const useSudokuStore = create<SudokuState>()((set, get) => ({
     }
     return true;
   },
-
 
   resetBoard: () =>
     set((state) => ({
@@ -161,7 +214,7 @@ export const useSudokuStore = create<SudokuState>()((set, get) => ({
   },
 
   setBoard: (board: number[][]) => set({ board }),
-  
+
   setBoardAnimation: async (board: number[][]) => {
     await new Promise((resolve) => setTimeout(resolve, 0));
     set({ board: [...board] });
@@ -173,6 +226,7 @@ export const useSudokuStore = create<SudokuState>()((set, get) => ({
     switch (type) {
       case "immediately":
         get().solve(board, 0, 0, state);
+        console.log(get().board);
         break;
       case "animation":
         await get().solveAnimation(board, 0, 0, state);
@@ -217,7 +271,7 @@ export const useSudokuStore = create<SudokuState>()((set, get) => ({
     }
     return false;
   },
-  
+
   solve: (board, row, col, state) => {
     const digits = get().digits;
     const size = get().size;

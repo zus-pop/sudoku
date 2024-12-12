@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useSudokuStore } from "../stores";
 
 const sudoku = () => {
+  const generateBoard = useSudokuStore((state) => state.generateBoard);
   const board = useSudokuStore((state) => state.board);
   const digits = useSudokuStore((state) => state.digits);
   const setSelectedCell = useSudokuStore((state) => state.setSelectedCell);
@@ -12,10 +13,17 @@ const sudoku = () => {
 
   const solve = useSudokuStore((state) => state.solveBoard);
 
+  
   const actions: {
     name: string;
     action: () => void;
   }[] = [
+    {
+      name: "Generate",
+      action: () => {
+        generateBoard("easy");
+      },
+    },
     {
       name: "Check",
       action: () => {
