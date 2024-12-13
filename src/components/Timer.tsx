@@ -1,6 +1,6 @@
+import { AnimatePresence, motion } from "motion/react";
 import { useEffect } from "react";
-import { useTimerStore } from "../stores/TimerStore";
-import { motion } from "motion/react";
+import { useTimerStore } from "../stores";
 
 const Timer = () => {
   const timer = useTimerStore((state) => state.timer);
@@ -15,14 +15,20 @@ const Timer = () => {
   }, [isReset]);
 
   return (
-    <motion.div
-      transition={{
-        type: "spring",
-      }}
-      className=""
-    >
-      {timer}
-    </motion.div>
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.4 }}
+        whileHover={{ opacity: 0 }}
+        className="absolute w-full h-full top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 p-2 bg-white bg-opacity-85 text-black rounded-md"
+      >
+        <motion.div className="font-bold text-2xl text-slate-900">
+          {timer}
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
   );
 };
 

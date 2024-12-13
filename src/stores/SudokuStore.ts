@@ -27,6 +27,7 @@ interface ProcessState {
 }
 
 interface SudokuState {
+  speed: number;
   digits: number[];
   size: number;
   initialBoard: number[][];
@@ -34,6 +35,7 @@ interface SudokuState {
   levels: SudokuLevel;
   selectedCell: Cell | null;
   processingStates: ProcessState;
+  currentLevel: "easy" | "medium" | "hard" | "extreme";
 
   isNotFull: () => boolean;
   generateBoard: (level: "easy" | "medium" | "hard" | "extreme") => void;
@@ -67,9 +69,12 @@ interface SudokuState {
     state: Tracker
   ) => Promise<boolean>;
   setProcessingState: (state: Partial<ProcessState>) => void;
+  setCurrentLevel: (level: "easy" | "medium" | "hard" | "extreme") => void;
+  setSpeed: (speed: number) => void;
 }
 
 export const useSudokuStore = create<SudokuState>()((set, get) => ({
+  speed: 30,
   digits: [1, 2, 3, 4, 5, 6, 7, 8, 9],
   size: 9,
   initialBoard: Array.from({ length: 9 }, () => Array(9).fill(0)),
@@ -87,6 +92,7 @@ export const useSudokuStore = create<SudokuState>()((set, get) => ({
     isChecking: false,
     isResetting: false,
   },
+  currentLevel: "medium",
 
   isNotFull: () => {
     const board = get().board;
@@ -115,6 +121,7 @@ export const useSudokuStore = create<SudokuState>()((set, get) => ({
       initialBoard: JSON.parse(JSON.stringify(newBoard)) as number[][],
     });
     get().setProcessingState({ isGenerating: false });
+    get().setCurrentLevel(level);
   },
 
   fillBoard: (board, row, col, state) => {
@@ -246,10 +253,10 @@ export const useSudokuStore = create<SudokuState>()((set, get) => ({
     );
   },
 
-  setBoard: (board: number[][]) => set({ board }),
+  setBoard: (board: number[][]) => set({ board: [...board] }),
 
   setBoardAnimation: async (board: number[][]) => {
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await new Promise((resolve) => setTimeout(resolve, get().speed));
     set({ board: [...board] });
   },
 
@@ -340,4 +347,7 @@ export const useSudokuStore = create<SudokuState>()((set, get) => ({
     }
     return false;
   },
+
+  setCurrentLevel: (level) => set({ currentLevel: level }),
+  setSpeed: (speed) => set({ speed }),
 }));

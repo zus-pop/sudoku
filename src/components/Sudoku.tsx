@@ -1,19 +1,23 @@
 import { AnimatePresence, motion } from "motion/react";
-import { useEffect, useState } from "react";
-import { useSudokuStore } from "../stores";
-import SolvingTypeModal from "./SolvingTypeModal";
-import { toast } from "sonner";
+import { useEffect, useRef, useState } from "react";
 import { AiOutlineLoading3Quarters } from "react-icons/ai";
+import { toast } from "sonner";
+import { useSudokuStore, useTimerStore } from "../stores";
+import BackDrop from "./BackDrop";
+import Cell from "./Cell";
+import GeneratingModal from "./GeneratingModal";
+import SolvingModal from "./SolvingModal";
 import Timer from "./Timer";
-import { useTimerStore } from "../stores/TimerStore";
 
 const sudoku = () => {
+  const constraintRef = useRef(null);
   const isTimerFinished = useTimerStore((state) => state.isFinished);
   const board = useSudokuStore((state) => state.board);
   const digits = useSudokuStore((state) => state.digits);
   const { isChecking, isSolving, isGenerating, isResetting } = useSudokuStore(
     (state) => state.processingStates
   );
+  const currentLevel = useSudokuStore((state) => state.currentLevel);
 
   const resetTimer = useTimerStore((state) => state.resetTimer);
   const isNotFull = useSudokuStore((state) => state.isNotFull);
@@ -27,12 +31,17 @@ const sudoku = () => {
   );
 
   useEffect(() => {
-    console.log(isTimerFinished);
-    generateBoard("medium");
+    const levels = ["easy", "medium", "hard", "extreme"];
+    const randomLevel = levels[Math.floor(Math.random() * levels.length)] as
+      | "easy"
+      | "medium"
+      | "hard"
+      | "extreme";
+    generateBoard(randomLevel);
   }, []);
 
   const actions: {
-    type: string;
+    type: "generate" | "check" | "solve" | "reset";
     name: string;
     isProcessing: boolean;
     processingName: string;
@@ -44,8 +53,7 @@ const sudoku = () => {
       isProcessing: isGenerating,
       processingName: "Generating...",
       action: () => {
-        generateBoard("easy");
-        resetTimer();
+        setIsGeneratingModalOpen(true);
       },
     },
     {
@@ -84,64 +92,50 @@ const sudoku = () => {
     },
   ];
 
-  const [isShow, setIsShow] = useState<boolean>(false);
+  const [isDigitsShow, setIsDigitsShow] = useState<boolean>(true);
   const [isSolvingModalOpen, setIsSolvingModalOpen] = useState<boolean>(false);
+  const [isGeneratingModalOpen, setIsGeneratingModalOpen] =
+    useState<boolean>(false);
 
   return (
-    <motion.div className="-mt-20 flex flex-col items-center">
+    <motion.div
+      ref={constraintRef}
+      className="-mt-20 flex flex-col items-center gap-2"
+    >
+      <motion.h1
+        initial={{ opacity: 0, y: -50 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ type: "spring", stiffness: 300 }}
+        className="text-3xl font-bold text-white mb-2"
+      >
+        Sudoku - {currentLevel.charAt(0).toUpperCase() + currentLevel.slice(1)}
+      </motion.h1>
       <motion.div className="mx-auto p-4 bg-sky-800 rounded-md">
         <motion.div className={`grid grid-cols-9`}>
           {board.map((row, rowIndex) =>
             row.map((_, colIndex) => (
-              <motion.div
+              <Cell
                 key={`${rowIndex}-${colIndex}`}
-                className={`flex justify-center items-center bg-white font-medium border
-                    w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12
-                    text-sm sm:text-lg md:text-2xl
-                    ${rowIndex % 3 === 2 && rowIndex !== 8 ? "border-b-4" : ""}
-                ${colIndex % 3 === 2 && colIndex !== 8 ? "border-r-4" : ""}
-                w-10 h-10
-                border-gray-800
-                `}
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-              >
-                <motion.input
-                  whileHover={{
-                    scale: 1.2,
-                    backgroundColor: "#dbdbdb",
-                    border: "1px solid #2563EB",
-                  }}
-                  whileFocus={{ scale: 1.1 }}
-                  onFocus={() => setIsShow(true)}
-                  onBlur={() => setIsShow(false)}
-                  type="text"
-                  animate={{
-                    scale: 1,
-                    backgroundColor:
-                      board[rowIndex][colIndex] > 0 ? "#dbdbdb" : "#fff",
-                  }}
-                  readOnly
-                  maxLength={1}
-                  className="w-full h-full text-center hover:cursor-pointer focus:bg-gray-300"
-                  value={
-                    board[rowIndex][colIndex] > 0
-                      ? board[rowIndex][colIndex]
-                      : ""
-                  }
-                  onClick={() =>
-                    setSelectedCell({ row: rowIndex, col: colIndex })
-                  }
-                ></motion.input>
-              </motion.div>
+                dragConstraints={constraintRef}
+                board={board}
+                row={rowIndex}
+                col={colIndex}
+                onClick={() =>
+                  setSelectedCell({ row: rowIndex, col: colIndex })
+                }
+                onFocus={() => setIsDigitsShow(true)}
+                onBlur={() => setIsDigitsShow(false)}
+              />
             ))
           )}
         </motion.div>
       </motion.div>
       <motion.div
+        layout
         initial={{ scale: 0 }}
         animate={{ scale: 1 }}
-        className="fixed flex flex-col gap-4 right-36 top-60  text-center"
+        transition={{ type: "spring", stiffness: 300 }}
+        className="fixed flex md:flex-col gap-4 right-10 bottom-5 sm:text-sm sm:right-10 sm:bottom-5 md:right-10 md:top-48 lg:right-20 lg:top-52"
       >
         {actions.map((action) => {
           const isDisabled =
@@ -164,23 +158,12 @@ const sudoku = () => {
                 scale: isDisabled ? 1 : 1.1,
                 backgroundColor: isDisabled ? "#ef4444" : "#075985",
               }}
-              className={`px-6 py-2 flex justify-start items-center gap-2 cursor-pointer
-                ${
-                  !isTimerFinished && action.type === "solve"
-                    ? "bg-red-500"
-                    : "bg-sky-800"
-                }
-                disabled:opacity-50 disabled:cursor-not-allowed bg-sky-800 rounded-md text-white text-lg
-                `}
+              className={`relative w-full sm:w-auto px-4 py-2 sm:px-6 sm:py-2 text-lg sm:text-2xl md:text-3xl flex justify-start items-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed bg-sky-800 rounded-md text-white`}
             >
               {action.isProcessing && (
                 <AiOutlineLoading3Quarters className="animate-spin" />
               )}
-              {action.type === "solve" && !isTimerFinished && (
-                <span>
-                  <Timer />
-                </span>
-              )}
+              {action.type === "solve" && !isTimerFinished && <Timer />}
               {action.isProcessing ? action.processingName : action.name}
             </motion.button>
           );
@@ -188,16 +171,25 @@ const sudoku = () => {
       </motion.div>
       <AnimatePresence>
         {isSolvingModalOpen && (
-          <SolvingTypeModal handleClose={() => setIsSolvingModalOpen(false)} />
+          <BackDrop handleClose={() => setIsSolvingModalOpen(false)}>
+            <SolvingModal handleClose={() => setIsSolvingModalOpen(false)} />
+          </BackDrop>
+        )}
+        {isGeneratingModalOpen && (
+          <BackDrop handleClose={() => setIsGeneratingModalOpen(false)}>
+            <GeneratingModal
+              handleClose={() => setIsGeneratingModalOpen(false)}
+            />
+          </BackDrop>
         )}
       </AnimatePresence>
       <AnimatePresence>
-        {isShow && (
+        {isDigitsShow && (
           <motion.div
             exit={{ opacity: 0, scale: 1.1 }}
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="flex bg-sky-800 rounded-md justify-between text-3xl md:text-4xl lg:text-5xl text-white fixed bottom-20 sm:bottom-16 md:bottom-8"
+            className="flex bg-sky-800 rounded-md justify-between text-2xl md:text-3xl lg:text-4xl text-white fixed bottom-20 sm:bottom-16 md:bottom-8"
           >
             {digits.map((digit) => (
               <motion.div

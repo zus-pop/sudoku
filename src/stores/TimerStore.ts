@@ -30,7 +30,7 @@ interface TimerState {
 export const useTimerStore = create<TimerState>()((set, get) => ({
   resetTimes: 60 * 5,
   times: 60 * 5,
-  timer: "00:00",
+  timer: "05:00",
 
   isReset: false,
   isRunning: false,
