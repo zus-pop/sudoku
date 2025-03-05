@@ -80,7 +80,7 @@ const Cell = ({
         maxLength={1}
         className={`w-full h-full text-center ${
           initialBoard[row][col] > 0 ? "cursor-not-allowed" : "cursor-pointer"
-        } ${bgColor} hover:bg-gray-400 `}
+        } ${bgColor} hover:bg-gray-500 `}
         value={board[row][col] > 0 ? board[row][col] : ""}
         onFocus={isInitial ? () => {} : onFocus}
         onBlur={onBlur}
