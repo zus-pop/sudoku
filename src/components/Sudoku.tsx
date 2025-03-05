@@ -10,9 +10,13 @@ import SolvingModal from "./SolvingModal";
 import Timer from "./Timer";
 
 const sudoku = () => {
+  const [tempCell, setTempCell] = useState<{ row: number; col: number } | null>(
+    null
+  );
   const constraintRef = useRef(null);
   const isTimerFinished = useTimerStore((state) => state.isFinished);
   const board = useSudokuStore((state) => state.board);
+  const initialBoard = useSudokuStore((state) => state.initialBoard);
   const digits = useSudokuStore((state) => state.digits);
   const { isChecking, isSolving, isGenerating, isResetting } = useSudokuStore(
     (state) => state.processingStates
@@ -92,7 +96,7 @@ const sudoku = () => {
     },
   ];
 
-  const [isDigitsShow, setIsDigitsShow] = useState<boolean>(true);
+  const [isDigitsShow, setIsDigitsShow] = useState<boolean>(false);
   const [isSolvingModalOpen, setIsSolvingModalOpen] = useState<boolean>(false);
   const [isGeneratingModalOpen, setIsGeneratingModalOpen] =
     useState<boolean>(false);
@@ -118,13 +122,19 @@ const sudoku = () => {
                 key={`${rowIndex}-${colIndex}`}
                 dragConstraints={constraintRef}
                 board={board}
+                initialBoard={initialBoard}
+                selectedCell={tempCell}
                 row={rowIndex}
                 col={colIndex}
-                onClick={() =>
-                  setSelectedCell({ row: rowIndex, col: colIndex })
-                }
+                onClick={() => {
+                  setSelectedCell({ row: rowIndex, col: colIndex });
+                  setTempCell({ row: rowIndex, col: colIndex });
+                }}
                 onFocus={() => setIsDigitsShow(true)}
-                onBlur={() => setIsDigitsShow(false)}
+                onBlur={() => {
+                  setIsDigitsShow(false);
+                  setTempCell(null);
+                }}
               />
             ))
           )}
